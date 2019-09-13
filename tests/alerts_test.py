@@ -1471,6 +1471,46 @@ def test_pagerduty_alerter_custom_alert_subject():
     assert expected_data == json.loads(mock_post_request.call_args_list[0][1]['data'])
 
 
+def test_pagerduty_alerter_unicode_alert_text():
+    rule = {
+        'name': 'Test PD Rule',
+        'type': 'any',
+        'alert_subject': 'valid-alert-subject',
+        'pagerduty_service_key': 'magicalbadgers',
+        'pagerduty_client_name': 'ponies inc.',
+        'pagerduty_incident_key': 'custom {0}',
+        'pagerduty_incident_key_args': ['somefield'],
+        'alert': []
+    }
+    load_modules(rule)
+    alert = PagerDutyAlerter(rule)
+    match = {
+        '@timestamp': '2017-01-01T00:00:00',
+        'somefield': 'foobarbaz',
+        'message': u'message-with-unicode-character-“'
+    }
+
+    with mock.patch('requests.post') as mock_post_request:
+        alert.alert([match])
+    expected_data = {
+        u'details': {
+            u'information': u'Test PD Rule\n\n@timestamp: 2017-01-01T00:00:00\n'
+            u'message: message-with-unicode-character-\u201c\nsomefield: foobarbaz\n'
+        },
+        u'description': u'valid-alert-subject',
+        u'service_key': u'magicalbadgers',
+        u'event_type': u'trigger',
+        u'incident_key': u'custom foobarbaz',
+        u'client': u'ponies inc.'
+    }
+    mock_post_request.assert_called_once_with(alert.url, data=mock.ANY, headers={'content-type': 'application/json'}, proxies=None)
+    actual_data = json.loads(mock_post_request.call_args_list[0][1]['data'])
+    # print('\nexpected_data', expected_data)
+    # print('\nactual_data', actual_data)
+    # print('\n')
+    assert expected_data == actual_data
+
+
 def test_pagerduty_alerter_custom_alert_subject_with_args():
     rule = {
         'name': 'Test PD Rule',

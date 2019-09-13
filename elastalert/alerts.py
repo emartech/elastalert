@@ -1395,13 +1395,12 @@ class PagerDutyAlerter(Alerter):
                     "information": body.encode('UTF-8'),
                 },
             }
-
         # set https proxy, if it was provided
         proxies = {'https': self.pagerduty_proxy} if self.pagerduty_proxy else None
         try:
             response = requests.post(
                 self.url,
-                data=json.dumps(payload, cls=DateTimeEncoder, ensure_ascii=False),
+                data=self._decode_unicode_payload(payload),
                 headers=headers,
                 proxies=proxies
             )
@@ -1415,6 +1414,12 @@ class PagerDutyAlerter(Alerter):
             elastalert_logger.info("Resolve sent to PagerDuty")
         elif self.pagerduty_event_type == 'acknowledge':
             elastalert_logger.info("acknowledge sent to PagerDuty")
+
+    def _decode_unicode_payload(self, payload):
+        try:
+            return json.dumps(payload, cls=DateTimeEncoder, ensure_ascii=False)
+        except UnicodeDecodeError:
+            return json.dumps(payload, cls=DateTimeEncoder, ensure_ascii=True)
 
     def resolve_formatted_key(self, key, args, matches):
         if args:
