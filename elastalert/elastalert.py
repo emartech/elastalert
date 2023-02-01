@@ -938,7 +938,7 @@ class ElastAlerter():
 
     def init_rule(self, new_rule, new=True):
 
-        @retry(TransportError, delay=1, backoff=2, max_delay=60)
+        @retry(TransportError, delay=1, jitter=1, max_delay=10, tries=14)
         def modify_rule_with_retry():
             ''' Copies some necessary non-config state from an exiting rule to a new rule. '''
             try:
@@ -946,8 +946,12 @@ class ElastAlerter():
             except TransportError as e:
                 elastalert_logger.warning('Error connecting to Elasticsearch for rule {}. Details: {}'.format(new_rule['name'], str(e)))
                 raise
-
-        modify_rule_with_retry()
+        
+        try:
+            modify_rule_with_retry()
+        except TransportError as e:
+            elastalert_logger.error('Retries exceeded connecting to Elasticsearch for rule {}. Details: {}'.format(new_rule['name'], str(e)))
+            return False
 
         self.enhance_filter(new_rule)
 
