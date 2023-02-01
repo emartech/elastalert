@@ -944,7 +944,8 @@ class ElastAlerter():
             try:
                 self.modify_rule_for_ES5(new_rule)
             except TransportError as e:
-                elastalert_logger.warning('Error connecting to Elasticsearch for rule {}.'.format(new_rule['name']))
+                elastalert_logger.warning('Error connecting to Elasticsearch for rule {}. Details: {}'.format(new_rule['name'], str(e)))
+                raise
 
         modify_rule_with_retry()
 
