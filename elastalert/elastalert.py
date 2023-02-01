@@ -938,7 +938,7 @@ class ElastAlerter():
 
     def init_rule(self, new_rule, new=True):
 
-        @retry(TransportError, dalay=1, backoff=2, max_delay=60)
+        @retry(TransportError, delay=1, backoff=2, max_delay=60)
         def modify_rule_with_retry():
             ''' Copies some necessary non-config state from an exiting rule to a new rule. '''
             try:
