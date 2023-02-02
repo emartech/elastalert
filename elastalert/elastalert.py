@@ -49,7 +49,7 @@ from util import ts_now
 from util import ts_to_dt
 from util import unix_to_dt
 from util import should_scrolling_continue
-
+from retry import retry
 
 class ElastAlerter():
     """ The main ElastAlert runner. This class holds all state about active rules,
@@ -937,13 +937,20 @@ class ElastAlerter():
         return num_matches
 
     def init_rule(self, new_rule, new=True):
-        ''' Copies some necessary non-config state from an exiting rule to a new rule. '''
+
+        @retry(TransportError, delay=1, jitter=1, max_delay=10, tries=14)
+        def modify_rule_with_retry():
+            ''' Copies some necessary non-config state from an exiting rule to a new rule. '''
+            try:
+                self.modify_rule_for_ES5(new_rule)
+            except TransportError as e:
+                elastalert_logger.warning('Error connecting to Elasticsearch for rule {}. Details: {}'.format(new_rule['name'], str(e)))
+                raise
+        
         try:
-            self.modify_rule_for_ES5(new_rule)
+            modify_rule_with_retry()
         except TransportError as e:
-            elastalert_logger.warning('Error connecting to Elasticsearch for rule {}. '
-                                      'The rule has been disabled.'.format(new_rule['name']))
-            self.send_notification_email(exception=e, rule=new_rule)
+            elastalert_logger.error('Retries exceeded connecting to Elasticsearch for rule {}. Details: {}'.format(new_rule['name'], str(e)))
             return False
 
         self.enhance_filter(new_rule)
